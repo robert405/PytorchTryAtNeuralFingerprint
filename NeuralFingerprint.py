@@ -19,35 +19,35 @@ class NeuralFingerprint(nn.Module):
         atomsFeatures = np.copy(molData['atomsFeatures'])
         graphList = molData['graphList']
         fingerPrint = torch.zeros(1,self.fingerPrintLength).cuda()
+        nbAtoms = len(graphList)
 
         for i in range(self.radius):
             updatedAtomsFeatures = np.zeros_like(atomsFeatures)
 
-            for nodeDict in graphList:
+            for i in range(nbAtoms):
 
-                nodeEdge = nodeDict['neighbor']
-                neighborSum = atomsFeatures[nodeDict['idx']]
+                nodeEdge = graphList[i]['neighbor']
+                neighborSum = atomsFeatures[i]
                 if (nodeEdge.shape[0] > 0):
                     neighborFeatures = atomsFeatures[nodeEdge]
                     neighborSum += np.sum(neighborFeatures, axis=0)
 
-                neighborSumTensor = torch.FloatTensor(neighborSum).cuda()
-                neighborSumTensor = neighborSumTensor.unsqueeze(0)
+                updatedAtomsFeatures[i] = neighborSum
 
-                nodeHash = F.relu(self.lin1(neighborSumTensor))
-                updatedAtomsFeatures[nodeDict['idx']] = nodeHash.data.cpu().numpy()[0]
+            nodesHash = torch.FloatTensor(updatedAtomsFeatures).cuda()
+            nodesHash = F.relu(self.lin1(nodesHash))
 
-                idx = F.softmax(self.lin2(nodeHash), dim=1)
-                fingerPrint += idx
+            idx = F.softmax(self.lin2(nodesHash), dim=1)
+            fingerPrint += torch.sum(idx, dim=0)
 
-            atomsFeatures = updatedAtomsFeatures
+            atomsFeatures = nodesHash.data.cpu().numpy()
 
         return fingerPrint
 
-class Lipophilicity(nn.Module):
+class RegressionPredictor(nn.Module):
     def __init__(self, featureSize, fingerPrintLength, radius):
 
-        super(Lipophilicity, self).__init__()
+        super(RegressionPredictor, self).__init__()
 
         self.fingerPrintLength = fingerPrintLength
         self.fingerPrintModule = NeuralFingerprint(featureSize, fingerPrintLength, radius).cuda()

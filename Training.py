@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from DataObject import DataObject
-from NeuralFingerprint import Lipophilicity
+from NeuralFingerprint import RegressionPredictor
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -9,17 +9,17 @@ def test(data, model, criterion):
 
     with torch.no_grad():
 
-        meanExp = 2.1863357142857165
+        meanExp = 3.900528889018617
         testLostList = []
 
         for row in data.testData:
             prediction = model([row[1]])
-            exp = float(row[0])
-            target = torch.FloatTensor([[exp]]).cuda()
+            pce = float(row[0])
+            target = torch.FloatTensor([[pce]]).cuda()
             loss = criterion(prediction, target)
 
             currentLoss = loss.data.cpu().numpy()
-            refLoss = (meanExp - exp) ** 2
+            refLoss = (meanExp - pce) ** 2
             testLostList += [(currentLoss,refLoss)]
 
         refMean = 0
@@ -41,8 +41,10 @@ def test(data, model, criterion):
         print("Mean loss = " + str(predMean))
         print("Min loss = " + str(min))
         print("Max loss = " + str(max))
-        print("Mean loss using exp mean = " + str(refMean))
+        print("Mean loss using target mean = " + str(refMean))
         print("-----------------------------------------")
+
+        return predMean
 
 print("Loading data")
 print("...")
@@ -53,12 +55,13 @@ print("Starting training")
 
 fingerPrintLength = 2048
 radius = 3
-model = Lipophilicity(data.featureSize, fingerPrintLength, radius).cuda()
+model = RegressionPredictor(data.featureSize, fingerPrintLength, radius).cuda()
 
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
 
 lossList = []
+testLossList = []
 currentLossMean = 0
 count = 0
 moduloPrint = 10
@@ -68,7 +71,7 @@ totalIt = epoch * (len(data.trainData) / batchSize)
 
 for k in range(epoch):
 
-    test(data, model, criterion)
+    testLossList += [test(data, model, criterion)]
     data.shuffleTrainingData()
 
     for i in range(0, len(data.trainData) - batchSize, batchSize):
@@ -95,4 +98,7 @@ for k in range(epoch):
 plt.plot(lossList)
 plt.show()
 
-test(data, model, criterion)
+testLossList += [test(data, model, criterion)]
+
+plt.plot(testLossList)
+plt.show()
