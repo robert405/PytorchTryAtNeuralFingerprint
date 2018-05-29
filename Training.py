@@ -11,6 +11,7 @@ def test(data, model, criterion):
 
         meanExp = 3.900528889018617
         testLostList = []
+        model.eval()
 
         for row in data.testData:
             prediction = model([row[1]])
@@ -35,6 +36,7 @@ def test(data, model, criterion):
             if (max < predVal):
                 max = predVal
 
+        model.train()
         refMean = refMean / len(testLostList)
         predMean = predMean / len(testLostList)
         print("-------------- Test result --------------")

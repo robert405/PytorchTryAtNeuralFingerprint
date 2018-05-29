@@ -52,11 +52,15 @@ class RegressionPredictor(nn.Module):
         self.fingerPrintLength = fingerPrintLength
         self.fingerPrintModule = NeuralFingerprint(featureSize, fingerPrintLength, radius).cuda()
 
-        self.lin1 = nn.Linear(fingerPrintLength, 512)
-        self.lin2 = nn.Linear(512, 512)
-        self.lin3 = nn.Linear(512, 512)
-        self.lin4 = nn.Linear(512, 512)
-        self.lin5 = nn.Linear(512, 1)
+        self.lin1 = nn.Linear(fingerPrintLength, 2048)
+        self.drop1 = nn.Dropout(p=0.5)
+        self.lin2 = nn.Linear(2048, 1024)
+        self.drop2 = nn.Dropout(p=0.5)
+        self.lin3 = nn.Linear(1024, 512)
+        self.drop3 = nn.Dropout(p=0.5)
+        self.lin4 = nn.Linear(512, 256)
+        self.drop4 = nn.Dropout(p=0.5)
+        self.lin5 = nn.Linear(256, 1)
 
     def forward(self, molData):
 
@@ -65,9 +69,13 @@ class RegressionPredictor(nn.Module):
             batch[i] = self.fingerPrintModule(molData[i])
 
         h = F.relu(self.lin1(batch))
+        h = self.drop1(h)
         h = F.relu(self.lin2(h))
+        h = self.drop2(h)
         h = F.relu(self.lin3(h))
+        h = self.drop3(h)
         h = F.relu(self.lin4(h))
+        h = self.drop4(h)
         out = self.lin5(h)
 
         return out
