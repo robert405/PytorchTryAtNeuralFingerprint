@@ -11,8 +11,14 @@ class NeuralFingerprint(nn.Module):
         self.featureSize = featureSize
         self.fingerPrintLength = fingerPrintLength
         self.radius = radius
-        self.lin1 = nn.Linear(featureSize, featureSize)
-        self.lin2 = nn.Linear(featureSize, fingerPrintLength)
+        self.bn = nn.BatchNorm1d(featureSize)
+
+        self.initialSoft = nn.Linear(featureSize, fingerPrintLength).cuda()
+
+        self.layerList = []
+        for i in range(radius):
+            layer = {'hashW': nn.Linear(featureSize, featureSize).cuda(), 'softW':nn.Linear(featureSize, fingerPrintLength).cuda()}
+            self.layerList += [layer]
 
     def forward(self, molData):
 
@@ -21,13 +27,9 @@ class NeuralFingerprint(nn.Module):
         fingerPrint = torch.zeros(1,self.fingerPrintLength).cuda()
         nbAtoms = len(graphList)
 
-        """
-        nodesHash = torch.FloatTensor(atomsFeatures).cuda()
-        nodesHash = F.relu(self.lin1(nodesHash))
-        idx = F.softmax(self.lin2(nodesHash), dim=1)
+        initialHash = torch.FloatTensor(atomsFeatures).cuda()
+        idx = F.softmax(self.initialSoft(initialHash), dim=1)
         fingerPrint += torch.sum(idx, dim=0)
-        atomsFeatures = nodesHash.data.cpu().numpy()
-        """
 
         for l in range(self.radius):
             updatedAtomsFeatures = np.zeros_like(atomsFeatures)
@@ -43,9 +45,9 @@ class NeuralFingerprint(nn.Module):
                 updatedAtomsFeatures[i] = neighborSum
 
             nodesHash = torch.FloatTensor(updatedAtomsFeatures).cuda()
-            nodesHash = F.relu(self.lin1(nodesHash))
+            nodesHash = self.bn(F.relu(self.layerList[l]['hashW'](nodesHash)))
 
-            idx = F.softmax(self.lin2(nodesHash), dim=1)
+            idx = F.softmax(self.layerList[l]['softW'](nodesHash), dim=1)
             fingerPrint += torch.sum(idx, dim=0)
 
             atomsFeatures = nodesHash.data.cpu().numpy()

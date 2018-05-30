@@ -5,7 +5,7 @@ from NeuralFingerprint import RegressionPredictor
 import matplotlib.pyplot as plt
 import numpy as np
 
-def test(data, model, criterion):
+def test(data, model, criterion, verbose=False):
 
     with torch.no_grad():
 
@@ -13,7 +13,7 @@ def test(data, model, criterion):
         testLostList = []
         model.eval()
 
-        for row in data.testData:
+        for row in data:
             prediction = model([row[1]])
             pce = float(row[0])
             target = torch.FloatTensor([[pce]]).cuda()
@@ -39,12 +39,13 @@ def test(data, model, criterion):
         model.train()
         refMean = refMean / len(testLostList)
         predMean = predMean / len(testLostList)
-        print("-------------- Test result --------------")
-        print("Mean loss = " + str(predMean))
-        print("Min loss = " + str(min))
-        print("Max loss = " + str(max))
-        print("Mean loss using target mean = " + str(refMean))
-        print("-----------------------------------------")
+        if (verbose):
+            print("-------------- Test result --------------")
+            print("Mean loss = " + str(predMean))
+            print("Min loss = " + str(min))
+            print("Max loss = " + str(max))
+            print("Mean loss using target mean = " + str(refMean))
+            print("-----------------------------------------")
 
         return predMean
 
@@ -55,12 +56,12 @@ data = DataObject()
 
 print("Starting training")
 
-fingerPrintLength = 2048
-radius = 3
+fingerPrintLength = 512
+radius = 5
 model = RegressionPredictor(data.featureSize, fingerPrintLength, radius).cuda()
 
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.1)
 
 lossList = []
 testLossList = []
@@ -68,12 +69,12 @@ currentLossMean = 0
 count = 0
 moduloPrint = 10
 epoch = 10
-batchSize = 50
+batchSize = 100
 totalIt = epoch * (len(data.trainData) / batchSize)
 
 for k in range(epoch):
 
-    testLossList += [test(data, model, criterion)]
+    testLossList += [test(data.testData, model, criterion, verbose=True)]
     data.shuffleTrainingData()
 
     for i in range(0, len(data.trainData) - batchSize, batchSize):
@@ -97,10 +98,10 @@ for k in range(epoch):
             currentLossMean = 0
             print("Step : " + str(count) + " / " + str(totalIt) + ", Mean of last " + str(moduloPrint) + " Loss : " + str(lossMean))
 
+testLossList += [test(data.testData, model, criterion, verbose=True)]
+
 plt.plot(lossList)
 plt.show()
-
-testLossList += [test(data, model, criterion)]
 
 plt.plot(testLossList)
 plt.show()
